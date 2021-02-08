@@ -34,11 +34,11 @@ USGS.flow.data <- read.csv("./Data/Processed/USGS_Site02085000_Flow_Processed.cs
 #View(USGS.flow.data)
 # Alternate option: click on data frame in Environment tab
 
-colnames(USGS.flow.data)
-str(USGS.flow.data)
-dim(USGS.flow.data)
+colnames(USGS.flow.data) # looking at the column names
+str(USGS.flow.data) # looking at the structure of the data
+dim(USGS.flow.data) # looking at the dimensions of the data
 
-# Check our date column
+# Check our date column; .csv files do not bring in dates as a date field - they bring it in as a character field
 class(USGS.flow.data$datetime)
 
 USGS.flow.data$datetime <- as.Date(USGS.flow.data$datetime, format = "%Y-%m-%d") 
@@ -60,6 +60,15 @@ Visualize count data for categorical variables.
 ```{r, fig.height = 3, fig.width = 4}
 ggplot(USGS.flow.data, aes(x = discharge.mean.approval)) +
   geom_bar()
+
+# taking out all of the NAs
+ggplot(na.omit(USGS.flow.data), aes(x = discharge.mean.approval)) +
+  geom_bar()
+
+# gg in ggplot = grammer of graphics
+# aes is short for aesthetics; x = categorical sub-dataset; geom = the type of geometry we want to plot (i.e. bar graph in this case)
+# Bar plots are useful for categorical data; looking at the counts in each category
+
 ```
 
 ### Histogram (function: geom_histogram)
@@ -67,24 +76,29 @@ ggplot(USGS.flow.data, aes(x = discharge.mean.approval)) +
 Visualize distributions of values for continuous numerical variables. What is happening in each line of code? Insert a comment above each line.
 
 ```{r, fig.height = 3, fig.width = 4}
-#
+# Useful for numeric data
+
+# This histogram is showing the distribution of the values of mean discharge
 ggplot(USGS.flow.data) +
   geom_histogram(aes(x = discharge.mean))
 
-#
+# The "binwidth" argument cahnges the bin width
 ggplot(USGS.flow.data) +
   geom_histogram(aes(x = discharge.mean), binwidth = 10)
 
-#
+# and the "bins" argument changes the # of bins
 ggplot(USGS.flow.data) +
   geom_histogram(aes(x = discharge.mean), bins = 20)
 
-#
+# How do you determine the default # of bins or default bin widths? Look at  the help page for geom_histogram();
+# Should generally use betwee 5 and 20 bins
+
+# The "scale_x_continuous command changes the x scale of the plot; "zooms in" to a section of the data
 ggplot(USGS.flow.data, aes(x = discharge.mean)) +
   geom_histogram(binwidth = 10) + 
   scale_x_continuous(limits = c(0, 500))
   
-#
+# This data is less skewed/more normally distributed; Play around with the number of bins to look at patterns in the data
 ggplot(USGS.flow.data) +
   geom_histogram(aes(x = gage.height.mean))
 
@@ -94,14 +108,21 @@ ggplot(USGS.flow.data) +
 An alternate to a histogram is a frequency polygon graph (distributions of values for continuous numerical variables). Instead of displaying bars,  counts of continuous variables are displayed as lines. This is advantageous if you want to display multiple variables or categories of variables at once.
 
 ```{r, fig.height = 3, fig.width = 4}
-#
+# Location of ggplot cheat sheet in R: Help -> Cheatsheets -> Data Visualization with ggplot2
+
+# lty = line type (2 = dashed)
 ggplot(USGS.flow.data) +
   geom_freqpoly(aes(x = gage.height.mean), bins = 50) +
   geom_freqpoly(aes(x = gage.height.min), bins = 50, color = "darkgray") +
   geom_freqpoly(aes(x = gage.height.max), bins = 50,  lty = 2) +
   scale_x_continuous(limits = c(0, 10))
 
-#
+# Can show a histogram and frequency line graph at the same time
+ggplot(USGS.flow.data) +
+  geom_histogram(aes(x = gage.height.mean), bins = 50) +
+  geom_freqpoly(aes(x = gage.height.mean), bins = 50)
+
+# setting the color to a categorical value; modifying the aesthetics to color the unique values in gage.height.mean.approval (A and P)
 ggplot(USGS.flow.data) +
   geom_freqpoly(aes(x = gage.height.mean, color = gage.height.mean.approval), bins = 50) +
   scale_x_continuous(limits = c(0, 10)) +
@@ -123,15 +144,19 @@ A box-and-whisker plot is yet another alternative to histograms (distributions o
 An alternate option is a violin plot, which displays density distributions, somewhat like a hybrid of the box-and-whiskers and the frequency polygon plot.
 
 ```{r, fig.height = 3, fig.width = 4}
-#
+
+# x is the numeric value in which we want to look at the distribution; Showing the distribution of the mean gage height values
+# A has a tight distribution with a lot of outliers
+# Looking at categorical and numeric data
 ggplot(USGS.flow.data) +
   geom_boxplot(aes(x = gage.height.mean.approval, y = gage.height.mean))
 
-#
+# Taking different slices of our data and looking at the distribution; Slicing the data with "cut_wiidth" Showing the variance/distributions across different slices of data.
+# There is a tight distribution of data near low values of mean gage height, but a much braoder distribution at larger values of of mean gage height
 ggplot(USGS.flow.data) +
   geom_boxplot(aes(x = gage.height.mean, y = discharge.mean, group = cut_width(gage.height.mean, 1)))
 
-#
+# Violin plot looks at the range and the distribution of values; Shows IQRs, but also shows how many data points are distributed where. 
 ggplot(USGS.flow.data) +
   geom_violin(aes(x = gage.height.mean.approval, y = gage.height.mean), 
               draw_quantiles = c(0.25, 0.5, 0.75))
@@ -141,9 +166,12 @@ ggplot(USGS.flow.data) +
 Visualize relationships between continuous numerical variables.
 
 ```{r, fig.height = 3, fig.width = 4}
+
+# Can use scatterplots to look at patterns in the data; each point is a row in the data. 
 ggplot(USGS.flow.data) +
   geom_point(aes(x = discharge.mean, y = gage.height.mean))
 
+# datetime is a hybrid between categorical and continuous; Showing mean discharge at different times. Can see that there is a big break where we don't have data for the site. 
 ggplot(USGS.flow.data) +
   geom_point(aes(x = datetime, y = discharge.mean))
 ```
