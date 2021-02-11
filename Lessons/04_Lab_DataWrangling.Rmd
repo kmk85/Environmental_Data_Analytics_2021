@@ -43,8 +43,11 @@ Filtering allows us to choose certain rows (observations) in our dataset.
 class(NTL.phys.data$lakeid)
 class(NTL.phys.data$depth)
 
-# dplyr filtering
+# dplyr filtering (with tidyverse)
 NTL.phys.data.surface <- filter(NTL.phys.data, depth == 0)
+
+# matrix filtering (not tidy, going back to base R) grabbing every column
+sampl1 <- NTL.phys.data[NTL.phys.data$depth == 0, ]
 
 # Choose multiple conditions to filter
 summary(NTL.phys.data$lakename)
@@ -57,16 +60,21 @@ NTL.phys.data.JunethruOctober <- filter(NTL.phys.data, daynum %in% c(152:304))
 # Exercise 1: 
 # filter NTL.phys.data for the year 1999
 # what code do you need to use, based on the class of the variable?
-
+# This is the most parsimonious way; Don't use %in% for one column b/c you would create a one-column vector, which is overkill
+NTL.phys.data.1999 <- filter(NTL.phys.data, year4 == 1999)
+class(NTL.phys.data.1999$year4)
 
 # Exercise 2: 
-# filter NTL.phys.data for Tuesday Lake from 1990 through 1999.
+# filter NTL.phys.data for Tuesday Lake from 1990 through 1999. Since year is an interger value, would tend to use greater than/less than instead of %in%
+ex2 <- filter(NTL.phys.data, lakename == 'Tuesday Lake', year4 >= 1990, year4 <= 1999)
 
+# less preferred way
+NTL.phys.data.1990to1999 <- filter(NTL.phys.data, lakename == 'Tuesday Lake', year4 %in% c(1990:1999))
 
 ```
 Question: Why don't we filter using row numbers?
 
-> Answer: 
+> Answer: It is not as reproducible
 
 ## Pipes
 
@@ -75,6 +83,9 @@ Pipe is another method to wrangle datasets that looks cleaner and is easier to r
 Let's say we want to take our raw dataset (NTL.phys.data), *then* filter the data for Peter and Paul lakes, *then* select temperature and observation information, and *then* add a column for temperature in Fahrenheit: 
 
 ```{r}
+# shortcut for pipe is command + shift + m (%>%)
+
+# creating a new dataset. filtering (subsetting rows) for Paul Lake OR Peter Lake, then selecting (subsetting colums) the names of the columns (a single column and a slice of columns), then mutating the column temperature_F (applying a function and creating a new column - temperature_C)
 NTL.phys.data.processed <- 
   NTL.phys.data %>%
   filter(lakename == "Paul Lake" | lakename == "Peter Lake") %>%
@@ -83,12 +94,24 @@ NTL.phys.data.processed <-
 
 #Exercise 3: Using a pipe filter NTL.phys.data for Tuesday Lake from 1990 through 1999 only for July 
 
+# using the command 'month' in the package 'lubridate'
 
-
-
+ex3 <- 
+  NTL.phys.data %>%
+  mutate(month = month(sampledate)) %>% 
+  filter(lakename == "Tuesday Lake", year4 >= 1990, year4 <= 1999, month == 7)
+  
 
 #Exercise 4: Using the data from part 3, a pipe and the summarise() function find the mean surface temperature (hints: you will need to add another filter for depth==0). Make sure you eliminate NAs before computing the means
 
+# 'summarise' or 'summarize' tool compresses  bunch of rows into a single row applying an aggregate function
+
+# ***always use units in your columns***
+
+ex4 <- 
+  ex3 %>% 
+  filter(depth == 0) %>% 
+  summarize(mean_surface_temp_C = mean(temperature_C))
   
 ```
 
@@ -99,8 +122,20 @@ For gather we will use `pivot_longer` and for spread we will use `pivot_wider`.
 ```{r}
 #Exercise 5: gather irradiance data (measured in the water column and measured on the deck of the sampling boat) into one column using pivot_longer
 
+ex5 <- NTL.phys.data %>% 
+  pivot_longer(c(irradianceWater, irradianceDeck),
+               names_to = "irradiance",
+               values_to = "rads")
 
 #Exercise 6: spread temperatureC into more than one column based on the depth
+
+ex6 <- NTL.phys.data %>% 
+  pivot_wider(
+    id_cols = lakeid:sampledate,
+    names_from = depth,
+    values_from = temperature_C
+    )
+
 
 ```
 
