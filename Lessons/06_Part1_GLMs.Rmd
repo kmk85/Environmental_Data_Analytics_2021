@@ -36,6 +36,10 @@ If multiple explanatory variables are chosen, they may be analyzed with respect 
 
 The GLM is based on the assumption that the data residuals approximate a normal distribution (or a linearly transformed normal distribution). We will discuss the non-parametric analogues to several of these tests if the assumptions of normality are violated. For tests that analyze categorical explanatory variables, the assumption is that the variance in the response variable is equal among groups. Note: environmental data often violate the assumptions of normality and equal variance, and we will often proceed with a GLM even if these assumptions are violated. In this situation, justifying the decision to proceed with a linear model must be made.
 
+## Hypothesis testing
+
+If p-value <= alpha, reject the null hypothesis.
+If p-value > alpha, do not reject the null hypothesis
 
 ## Set up
 ```{r, message = FALSE}
@@ -75,11 +79,21 @@ For the NTL-LTER dataset, can we predict irradiance (light level) from depth?
 irradiance.regression <- lm(PeterPaul.chem.nutrients$irradianceWater ~ PeterPaul.chem.nutrients$depth)
 
 # another way to format the lm() function
+# providing the data frame and then don't need to use the $ sign
 irradiance.regression <- lm(data = PeterPaul.chem.nutrients, irradianceWater ~ depth)
 summary(irradiance.regression)
+# residuals will range from -458.9 to 23813.0 
+# coefficients: intercept = 486.818, depth coefficient = slope of the regression line that is trying to find the relationship between depth and irradianceWater is -95.890 (negative relationship)
+# Standard errors for coefficients
+# p-value (our confidence level) is less than 0.05 (can explain irradiance by depth)
+# Want RSE to be as small as possible
+# degrees of freedom will be associated with the # of observations in our sample and the # of variables we are considering in our linear regression
+# R-squared tells us how much variability is being explained: depth explains around 30% of the variability in irrandiance
+
 
 # Correlation
 cor.test(PeterPaul.chem.nutrients$irradianceWater, PeterPaul.chem.nutrients$depth)
+# it is a negative correlation. The strength of the correlation is .55, which is a strong correlation between the two variables
 ```
 Question: How would you report the results of this test (overall findings and report of statistical output)?
 
@@ -98,8 +112,14 @@ An exploratory option to visualize the model fit is to use the function `plot`. 
 4. **Residuals vs. Leverage.** This graph will display potential outliers. The values that fall outside the dashed red lines (Cook's distance) are outliers for the model. Watch for drastic departures of the solid red line from horizontal - this is a sign of a poor model fit.
 
 ```{r, fig.height = 3, fig.width = 4}
+# dividing plot screen into 4 cells (2x2); mar() defines the size of the plots
 par(mfrow = c(2,2), mar=c(4,4,4,4))
 plot(irradiance.regression)
+# Plot 1: looking for symmetry based on the red line; want the red line to be as flat as possible; one outlier obervation - may want to remove that observation
+# Plot 2: Normal Q-Q plot; dashed line corresponds to the Q-Q of the normal distribution and the circles correspond to the Q-Q for our residuals. If we want our residuals to follow a normal distribution, we want our circles to follow the dashed line
+# Plot 3: comparing fitted values with the square of standardized residuals. Looking for symmetry with respect to the red line. 
+# Plot 4: This plot will help us look at potential outliers. Look for drastic departures from the solid red line = poor model fit. Outliers will typically be outside of cook's distance (the dashed red lines)
+
 par(mfrow = c(1,1))
 ```
 
@@ -112,21 +132,29 @@ irradiancebydepth <-
   ylim(0, 2000) +
   geom_point() 
 print(irradiancebydepth) 
+
+# using ylim does not remove the outlier values, but it changes the scale of the y-axis; There is not a linear relationship betwen x and y, so can try to log-transform 
+
 ```
 
 Given the distribution of irradiance values, we don't have a linear relationship between x and y in this case. Let's try log-transforming the irradiance values. Note we also removing the observations that seems to ba an outlier.
 
 ```{r, fig.height = 3, fig.width = 4}
+# filtering the dataset; In order to take the log, need to remove the 0's. Also want to remove the outlier, so getting rid of any irradianceWater > 5000.
 PeterPaul.chem.nutrients <- filter(PeterPaul.chem.nutrients, 
                                    irradianceWater != 0 & irradianceWater < 5000)
 irradiance.regression2 <- lm(data = PeterPaul.chem.nutrients, log(irradianceWater) ~ depth)
 summary(irradiance.regression2)
+# relationship is still negative; p-values are still smaller than confidence levels, so the intercept and slope are statistically different from 0; RSE has been reduced; R-squared value has increased, so now depth explains more variability in irradiance 
+
 
 par(mfrow = c(2,2), mar=c(4,4,4,4))
 plot(irradiance.regression2)
 par(mfrow = c(1,1))
+# removed outlier, so easier to see symmetry along red line
 
 # Add a line and standard error for the linear regression
+# GOing to take the log of irradiance (scale_y_log10), so the y-axis will be log-transformed
 irradiancebydepth2 <- 
   ggplot(PeterPaul.chem.nutrients, aes(x = depth, y = irradianceWater)) +
   geom_smooth(method = "lm") +
@@ -135,6 +163,7 @@ irradiancebydepth2 <-
 print(irradiancebydepth2) 
 
 # SE - confidence interval around smooth can also be removed
+# se = FALSE eliminates the confidence intervals on the graph
 irradiancebydepth2 <- 
     ggplot(PeterPaul.chem.nutrients, aes(x = depth, y = irradianceWater)) +
     geom_point() +
@@ -150,7 +179,7 @@ print(irradiancebydepth2)
 It is possible, and often useful, to consider multiple continuous explanatory variables at a time in a linear regression. For example, total phosphorus concentration in Paul Lake (the unfertilized lake) could be dependent on depth and dissolved oxygen concentration: 
 
 ``` {r, fig.height = 3, fig.width = 4}
-TPregression <- lm(data = subset(PeterPaul.chem.nutrients, lakename == "Paul Lake"), 
+TPregression <- lm(data = subset(PeterPaul.chem.nutrients, lakename == "Paul Lake"),
                    tp_ug ~ depth + dissolvedOxygen)
 summary(TPregression)
 
@@ -159,10 +188,13 @@ TPplot <- ggplot(subset(PeterPaul.chem.nutrients, lakename == "Paul Lake"),
   geom_point() +
   xlim(0, 20)
 print(TPplot)
+# some correlation between the two variables
 
+# residual plots of the regression
 par(mfrow = c(2,2), mar=c(4,4,4,4))
 plot(TPregression)
 par(mfrow = c(1,1))
+
 
 ```
 
@@ -172,13 +204,18 @@ We can also make exploratory plots of several continuous data points to determin
 ```{r, fig.height = 3, fig.width = 4}
 #install.packages("corrplot")
 library(corrplot)
+# creating a new dataframe with the columns of interest and omit all NAs
 PeterPaulnutrients <- 
   PeterPaul.chem.nutrients %>%
   select(tn_ug:po4) %>%
   na.omit()
 PeterPaulCorr <- cor(PeterPaulnutrients)
 corrplot(PeterPaulCorr, method = "ellipse")
+# the thinner the line, the higher the correlation; blue shows positive correlation
+
+# a way of showing the value of the correlation with the ellipses
 corrplot.mixed(PeterPaulCorr, upper = "ellipse")
+
 ```
 
 ## AIC to select variables
@@ -192,11 +229,14 @@ Paul.naomit <- PeterPaul.chem.nutrients %>%
   filter(lakename == "Paul Lake") %>%
   na.omit()
 
+# consider all the nutrients as explanatory variables
 TPAIC <- lm(data = Paul.naomit, tp_ug ~ depth + dissolvedOxygen + 
               temperature_C + tn_ug + po4)
 
 #Choose a model by AIC in a Stepwise Algorithm
 step(TPAIC)
+# Starting point = full regression with all variables; want the smallest AIC; step() fuction alalyzes the function after removing explanatory variables one-by-one; best regression is considering oxygen, temp, and nitrogen; also give coefficients for each of the explanatory variables
+
 TPmodel <- lm(data = Paul.naomit, tp_ug ~ dissolvedOxygen + temperature_C + tn_ug)
 summary(TPmodel)
 

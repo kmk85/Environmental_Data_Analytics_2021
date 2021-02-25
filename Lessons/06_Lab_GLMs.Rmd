@@ -11,7 +11,7 @@ editor_options:
 ## Objectives
 1. Answer questions on M5/A5
 2. Answer questions on M6 - GLMs
-3. Additional comments on videos - t-tes
+3. Additional comments on videos - t-test
 4. Practice more application GLM to real datasets
 
 
@@ -67,6 +67,8 @@ Are Ozone levels below the threshold for "good" AQI index (0-50)?
 > Exercise 1: State the hypotheses for testing mean of AQI index.
 
 > Answer: 
+Ho: mu >= 50ppm
+Ha: mu < 50ppm
 
 
 ```{r}
@@ -94,7 +96,7 @@ print(Ozone.plot)
 
 Write a sentence or two about the results of this test. Include both the results of the test and an interpretation that puts the findings in context of the research question.
 
-> 
+> On average, ozone measured in NC is less than 50ppm over (t-test, df = 6829, p < 0.001).
 
 ### Two-sample t-test
 
