@@ -95,11 +95,11 @@ summary(Litter.Totals.anova)
 # F value = mean sq plotID / mean sq residuals
 
 #results: reject null hypothesis i.e. difference between a pair of group means is statiscally significant
-# with the aov function, we can tell that not all the means are the same, but it does not tell us whihc means are different, so need to run some post-hoc tests to answer that 
+# with the aov function, we can tell that not all the means are the same, but it does not tell us which means are different, so need to run some post-hoc tests to answer that 
 
 # Format ANOVA as lm (can also run an ANOVA test using the lm function)
 # The first site is represented as the intercept term
-# Estimate Std. is the estimated mean for each level 9with respect to the intercept term); so, the mean for the intercept is 15.680, the mean for site 041 is 15.680 + 1.299, mean for site 046 is 15.680 - 5.724, etc.
+# Estimate Std. is the estimated mean for each level with respect to the intercept term); so, the mean for the intercept is 15.680, the mean for site 041 is 15.680 + 1.299, mean for site 046 is 15.680 - 5.724, etc.
 Litter.Totals.anova2 <- lm(data = Litter.Totals, dryMass ~ plotID)
 summary(Litter.Totals.anova2)
 
