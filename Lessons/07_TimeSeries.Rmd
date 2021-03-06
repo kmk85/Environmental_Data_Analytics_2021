@@ -27,7 +27,7 @@ library(trend)
 library(zoo)
 #install.packages("Kendall")
 library(Kendall)
-#install.packages("tseries")
+#install.packages("tseries") # not using this today, but can use as additional resource
 library(tseries)
 
 # Set theme
@@ -77,6 +77,8 @@ River discharge is measured daily at the Eno River gage station. Since we are wo
 Let's look at what the dataset contains for mean daily discharge.
 
 ```{r}
+
+# The first thing you do in TSA is plot your variable over time and look at it; Can clearly see that there is a huge gap in the data (1971 - 1985)
 ggplot(EnoDischarge, aes(x = datetime, y = discharge.mean)) +
   geom_line() +
   labs(x = "", y = expression("Discharge (ft"^3*"/s)"))
@@ -87,6 +89,9 @@ Notice there are missing data from 1971 to 1985. Gaps this large are generally a
 Let's start by removing the NAs and splitting the dataset into the early and late years. 
 
 ```{r}
+# Because there is a hug gap in the data, we will split the data into early and late years
+
+# removing the NAs
 EnoDischarge.complete <- EnoDischarge %>%
   drop_na(discharge.mean)
 
@@ -103,7 +108,7 @@ A given time series can be made up of several component series:
 
 1. A **seasonal** component, which repeats over a fixed known period (e.g., seasons of the year, months, days of the week, hour of the day)
 2. A **trend** component, which quantifies the upward or downward progression over time. The trend component of a time series does not have to be monotonic.
-3. An **error** or **random** component, which makes up the remainder of the time series after other components have been accounted for. This component reflects the noise in the dataset. 
+3. An **error** or **random** component, which makes up the remainder of the time series after other components have been accounted for. This component reflects the noise in the dataset. (the component that cannot be explained by trend or seasonality)
 4. (optional) A **cyclical** component, which repeats over periods greater than the seasonal component. A good example of this is El Niño Southern Oscillation (ENSO) cycles, which occur over a period of 2-8 years.
 
 ### Example: Eno discharge
@@ -115,27 +120,43 @@ We first need to turn the discharge data into a time series object in R. This is
 Note: time series objects must be equispaced. In our case, we have daily data with no NAs in the data frame, so we don't need to worry about this. We will cover how to address data that are not equispaced later in the lesson.
 
 ```{r}
+# Analyzing the discharge.mean over time; need to define the starting time by year and month; also need to specify the frequency - 365 means it will consider every day. 
 EnoDischarge.late_ts <- ts(EnoDischarge.late$discharge.mean, start = c(1985,1), frequency = 365)
+
+# If I want to look at the time series object; Looking at the first 10 elements
+head(EnoDischarge.late_ts, 10)
 ```
 
 The `stl` function decomposes the time series object into its component parts. We must specify that the window for seasonal extraction is either "periodic" or a specific number of at least 7. The decomposition proceeds through a loess (locally estimated scatterplot smoothing) function.
 
 ```{r}
+# Need to transform data into a TSA (i.e., use the ts() function) before using the stl() function
 ?stl
+# Performs a seasonal decomposition of the time series; ***first argument in the function needs to be a univariate time series, second function is the seasonal window, but if you specify this when you create the time series, you just have to put s.window = "periodic"
+
 # Generate the decomposition
 EnoDischarge.late_Decomposed <- stl(EnoDischarge.late_ts, s.window = "periodic")
 
 # Visualize the decomposed series. 
 plot(EnoDischarge.late_Decomposed)
+# will repeat itself every 365 observations
+# Some periods, the trends increase and some periods the trend decreases, so it is not a monotonic dataset
+
+# If you want to find a specific element of your decomposed object, can look at EnoDischarge.late_Decomposed$time.series
+# when you sum the seasonal, trend, and remainder columns, you get the values of the observed data; will create a dataframe with these three columns
+# Also provides the start date, end date, and frequency
 
 # We can extract the components and turn them into data frames
 EnoDischarge.late_Components <- as.data.frame(EnoDischarge.late_Decomposed$time.series[,1:3])
 
+# adding an observed column and a date column to the data frame
 EnoDischarge.late_Components <- mutate(EnoDischarge.late_Components,
         Observed = EnoDischarge.late$discharge.mean,     
         Date = EnoDischarge.late$datetime)
 
-# Visualize how the trend maps onto the data
+# Visualize how the trend maps onto the data (plotting the components over time)
+# adding lines for the observed and trend components and a line for the yintercept at 0
+# red line is the trend over time
 ggplot(EnoDischarge.late_Components) +
   geom_line(aes(y = Observed, x = Date),  size = 0.25) +
   geom_line(aes(y = trend, x = Date), color = "#c13d75ff") +
@@ -143,6 +164,7 @@ ggplot(EnoDischarge.late_Components) +
   ylab(expression("Discharge (ft"^3*"/s)"))
 
 # Visualize how the seasonal cycle maps onto the data
+# seasonal component goes below y=0
 ggplot(EnoDischarge.late_Components) +
   geom_line(aes(y = Observed, x = Date),  size = 0.25) +
   geom_line(aes(y = seasonal, x = Date), color = "#c13d75ff") +
@@ -177,11 +199,14 @@ The Eno River discharge data doesn't have any short periods of missing data, so 
 
 
 ```{r}
+# Looking at the first 6 observations of the wind_data dataset
 head(wind_data)
+# summarizing the last column of the dataset (called AWND) and you can see there there is 1 NA
 summary(wind_data$AWND)
 
 # Adding new column with no missing obs, just for illustration purpose
-# In real applications you will simply replace NAs
+# In real applications you will simply replace NAs (i.e., do the replacement on the original column)
+# na.opprox() function can be used to interpolate missing observations using either linear interpolation or the sp line interpolation.
 wind_data_clean <- 
   wind_data %>% 
   mutate( AWND.clean = zoo::na.approx(AWND) )
@@ -193,6 +218,7 @@ ggplot(wind_data_clean ) +
   geom_line(aes(x = DATE, y = AWND.clean), color = "red") +
   geom_line(aes(x = DATE, y = AWND), color = "black") +
   ylab("Average Wind Speed") 
+# Can see where there was a missing observation (red line)
 ```
 
 ### Monotonic trend analysis, continued
@@ -219,6 +245,7 @@ Note that wind speed has a seasonal cycle. We might be interested in knowing how
 ```{r}
 
 # Generate time series (trend test needs ts, not data.frame)
+# Using the first() function to make objects for the month year and first year
 f_month <- month(first(wind_data_clean$DATE))
 f_year <- year(first(wind_data_clean$DATE))
 wind_data_ts <- ts(wind_data_clean$AWND.clean,
@@ -228,6 +255,7 @@ wind_data_ts <- ts(wind_data_clean$AWND.clean,
 #decompose
 wind_data_decomp <- stl(wind_data_ts,s.window = "periodic")
 plot(wind_data_decomp)
+# seasonal component is much easier to spot becasue it repeats every 12 observations; overall decreasing trend (by eye, but need a statistical test to prove this)
 
 # Run SMK test
 wind_data_trend1 <- Kendall::SeasonalMannKendall(wind_data_ts)
@@ -235,12 +263,14 @@ wind_data_trend1 <- Kendall::SeasonalMannKendall(wind_data_ts)
 # Inspect results
 wind_data_trend1
 summary(wind_data_trend1)
+# p-value < 0.05, so the reject the null -> there is a trend in the data
 
 
 wind_data_trend2 <- trend::smk.test(wind_data_ts)
 # Inspect results
 wind_data_trend2
 summary(wind_data_trend2)
+# shows results for each season of the year. Can see the values of "S"
 
 #Visualization
 wind_data_plot <-
@@ -255,7 +285,7 @@ print(wind_data_plot)
 
 What would we conclude based on these findings? 
 
-> Answer:
+> Answer:There is a negative slope, so there is a decreasing trend of the average wind speed over time.
 
 
 ## Forecasting with Autoregressive and Moving Average Models (ARMA)
