@@ -14,7 +14,7 @@ editor_options:
  * What makes data "spatial"?
  * Why location is important? 
  * Vector data model: points/lines/polygons
- * Spatial data structures: sfg, sfc, sf objects
+ * Spatial data structures: geometry (a set of spatial coordinates), sfg (spatial feature geometry = one row within the geometry column; i.e. a set of coordinates with coordinate reference system), sfc (spatial features column = geometry column), sf (spatial feature/dataframe) objects
  * Projections & Coordinate reference systems
  * Visualization techniques
 
@@ -80,11 +80,20 @@ mapView(counties_sf, zcol = "AWATER")
 
 ```{r read HUCs shapefile}
 #Read the shapefile into an sf dataframe named "huc8_sf"
+huc8_sf <- st_read('./Data/Spatial/NCHUC8.shp')
 
+#Check the CRS - the huc8 dataset uses a different CRS than the counties dataset
+st_crs(huc8_sf)
+st_crs(counties_sf)
 
+#Reveal the columns
+colnames(huc8_sf)
+
+#Examine some records
+head(hic8_sf)
 
 #View the data as a map, colored by the acreage in each
-
+mapView(huc8_sf, zcol = "ACRES")
 
 ```
 
@@ -94,11 +103,13 @@ mapView(counties_sf, zcol = "AWATER")
 
 ```{r Select the Upper Neuse HUC 8}
 #Read the shapefile into an sf dataframe
-
+upperNeuse_sf <- st_read('./Data/Spatial/NCHUC8.shp') %>% 
+  filter(SUBBASIN == "Upper Neuse")
 
 
 #Create a map
-
+mapView(huc8_sf, col.regions = 'orange') +
+mapView(upperNeuse_sf, col.regions = 'purple')
 
 ```
 
@@ -114,17 +125,20 @@ The URL '<https://raw.githubusercontent.com/ENV859/EnviroAtlasData/main/Wind_Ene
 
 ```{r}
 #Compute HUC8 wind energy
-
-
+wind_energy_huc8 <- read.csv(
+  'https://raw.githubusercontent.com/ENV859/EnviroAtlasData/main/Wind_Energy.csv',
+  colClasses = c('HUC_12' = 'factor')) %>% 
+  mutate(HUC_8 = substr(HUC_12,1,8)) %>% 
+  group_by(HUC_8) %>% 
+  summarize(kWhkm2day = sum(kWhkm2day))
 
 
 #Join to HUC_8 features
-
-
-
+huc8_sf_wind <- huc8_sf %>% 
+  left_join(wind_energy_huc8, by = c('HUC_8'))
 
 #View the outputs
-
+mapview(huc8_sf_wind, zcol = 'kWhkm2day')
 
 
 ```
@@ -134,12 +148,15 @@ Aggregate the HUC_8 data on the `DWQ_Basin` attribute, computing the sum of the 
 
 ```{r Aggregate the HUC data on an attribute, saving as huc2_sf}
 #List the unique values in the DWQ_Basin field
+unique(huc8_sf$DWQ_Basin)
 
-
-
-#Summarize on DWQ Basin value
-
-
+#Summarize on DWQ Basin value ###Need to finish code
+huc2_sf <- huc8_sf %>% 
+  group_by(DWQ_Basin) %>% 
+  summarize(
+    ACRES = sum(ACRES),
+    SQ_MILE = sum()
+  )
 
 #Map the data
 

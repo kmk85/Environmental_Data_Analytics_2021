@@ -80,6 +80,7 @@ EPAair_PM_avg <- EPAair_PM25_NC2018_raw %>%
             maxPM = max(Daily.Mean.PM2.5.Concentration))
 
 #Plot the data using longitude and latitude as X and Y
+# These points are shown with real distances, so you can see autocorrelation and other spatial patterns in the data
 ggplot(EPAair_PM_avg, aes(x=SITE_LONGITUDE, y=SITE_LATITUDE)) + 
   geom_point(aes(color=meanPM), size=4, alpha=0.5) + coord_equal() 
 ```
@@ -119,6 +120,7 @@ See <http://rstudio.github.io/leaflet/> for more info
 ```{r plot.with.leaflet}
 
 #Create the map and add Tiles
+# tiles are the backgrounds; adding our data as circle markers and are specifying the characteristics of the markers; also determining what shows up in the map popup
 myMap  <- leaflet(data=EPAair_PM_avg) %>% 
   addTiles() %>% 
   addCircleMarkers(~SITE_LONGITUDE,~SITE_LATITUDE,
@@ -206,13 +208,15 @@ sf_EPAair_PM_avg <- st_as_sf(EPAair_PM_avg,
                              coords = c('SITE_LONGITUDE','SITE_LATITUDE'),
                              crs=4326)
 
-#Do you see a new column name?                
+#Do you see a new column name? 
+# Yes, new geometry column - combined the lat and long columns
 colnames(sf_EPAair_PM_avg)
 
 #What is the class of the values in the geometry column?
+# point
 class(sf_EPAair_PM_avg$geometry)
 
-#What does this look like
+#What does this look like?
 head(sf_EPAair_PM_avg)
 
 #Plot the geometry...
@@ -229,13 +233,16 @@ The `plot` command creates some quick but very rough plots. Let's return to the 
 
 ```{r plotting sf objects}
 #With geometries now available in a column, we can use ggplot with the geom_sf object
+# dont need to specify x and y in aes b/c uses coordinates
 ggplot() + 
   geom_sf(data=sf_EPAair_PM_avg, aes(color=meanPM, size=maxPM))
 
 #Plot everything -- with MapView
+# Adds a basemap
 mapview(sf_EPAair_PM_avg)
 
 #View multiple attributes with MapView
+# specifying color and size of points
 mapview(sf_EPAair_PM_avg, 
         zcol='meanPM', 
         cex='maxPM')
@@ -401,9 +408,12 @@ Applying our knowledge of CRS, let's transform our EPA sites from its native geo
 
 ```{r Transform our data to UTM 17 and buffer it}
 #Transform the entire EPA dataset to the UTM Zone 17N crs
+# crs = coordinate reference system
+# geometry units are in meters now
 sf_EPAair_PM_avg_UTM <- st_transform(sf_EPAair_PM_avg, crs=26917)
 
 #Rebuffer the Durham Armory site. Is it now circular? 
+# yes because we are showing it on a flat surface
 DA_UTM_buffer <- sf_EPAair_PM_avg_UTM %>% 
   filter(Site.Name == 'Durham Armory') %>%     # Filter for the Durham Armory Site
   st_buffer(2000)                              # Buffer 2000 meters
@@ -419,7 +429,7 @@ As we are now in a planar coordinate system, we can do some more spatial analysi
 First, we'll again extract one feature from the EPA dataset, on here in Durham near the Durham Armory on Stadium Drive at North Duke Street.
 
 ```{r Extract a single feature}
-#Extract the Durham Armory Point
+#Extract the Durham Armory Point (creating a subset of the dataframe)
 sf_DurhamArmory <- sf_EPAair_PM_avg_UTM %>% 
   filter(Site.Name == 'Durham Armory')
 

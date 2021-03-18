@@ -45,7 +45,8 @@ library(RColorBrewer)
 First, we'll read in our EPA air quality sites, as we did in the previous exercise.
 
 ```{r convert.tabular.data.to.sf.object}
-#Read our EPA points into a spatial dataframe
+#Read our EPA points into a spatial dataframe (using the st_as_sf command)
+#crs= 4269 is WGS 1984
 epa_pm25_sites_sf <- read_csv('./Data/Raw/EPAair_PM25_NC2018_raw.csv') %>% 
   group_by(`Site Name`, COUNTY, SITE_LATITUDE, SITE_LONGITUDE) %>% 
   summarize(
@@ -73,7 +74,7 @@ The `sf` package allows us to read many existing data formats, including ArcGIS 
 Below we read in the USA counties shapefile, filtering for just the NC features (NC has a state FIPS code of "37"...). We also see that `sf` plays nice with "tidyverse" syntax (e.g. pipes) and functions (e.g. filter). The `sf` package also includes some new spatial methods for exploring our data (e.g. `st_bbox` which draws a bounding box around all spatial features).
 
 ```{r read.filtered.records.from.shapefile.to.sf.object}
-#
+# use st_read to read in a shapefile;
 counties_sf<- st_read('./Data/Spatial/cb_2018_us_county_20m.shp') %>% 
   filter(STATEFP == 37) #Filter for just NC Counties
 
@@ -87,13 +88,14 @@ st_crs(counties_sf)
 #
 nrow(counties_sf)
 
-#Reveal the extent of this dataset via the st_bbox() function
+#Reveal the extent of this dataset via the st_bbox() function; creates a spatial bounding box around all of the features
 st_bbox(counties_sf)
 
 #View the data
 head(counties_sf)
 
 #Plot the data, colored by area of land in each county
+mapView(counties_sf, zcol = "ALAND")
 mapView(counties_sf, zcol = "AWATER")
 ```
 
@@ -103,19 +105,19 @@ mapView(counties_sf, zcol = "AWATER")
 
 ```{r read HUCs shapefile}
 #Read the shapefile into an sf dataframe named "huc8_sf"
-
+huc8_sf <- st_read('./Data/Spatial/NCHUC8.shp')
 
 #Reveal the columns
-
+colnames(huc8_sf)
 
 #Check the CRS
-
+st_crs(huc8_sf)
 
 #Examine some records
-
+head(hic8_sf)
 
 #View the data as a map, colored by the acreage in each
-
+mapView(huc8_sf, zcol = "ACRES")
 
 ```
 
@@ -125,11 +127,13 @@ mapView(counties_sf, zcol = "AWATER")
 
 ```{r Select the Upper Neuse HUC 8}
 #Read the shapefile into an sf dataframe
+upperNeuse_sf <- st_read('./Data/Spatial/NCHUC8.shp') %>% 
+  filter(SUBBASIN == "Upper Neuse")
 
 
-
-#Create a map
-
+#Create a map ### NEED HELP WITH THIS
+mapView(huc8_sf, col.regions = 'orange') +
+mapView(upperNeuse_sf, col.regions = 'purple')
 
 ```
 
@@ -189,6 +193,7 @@ We'll focus on just a few variables: Estimates of people in poverty ("E_POV") an
 
 ```{r join.attributes.to.spatial features}
 #Read the 2018 SVI county-level dataset for NC
+# colclasses = giving a list of column names and importing as a factor
 svi2018_nc_raw <- read.csv(
   'https://svi.cdc.gov/Documents/Data/2018_SVI_Data/CSV/States_Counties/NorthCarolina_COUNTY.csv',
   colClasses = c('FIPS' = 'factor')) %>% 
@@ -225,17 +230,20 @@ ggplot() +
 
 ```{r}
 #Compute HUC8 wind energy
-
-
+wind_energy_huc8 <- read.csv(
+  'https://raw.githubusercontent.com/ENV859/EnviroAtlasData/main/Wind_Energy.csv',
+  colClasses = c('HUC_12' = 'factor')) %>% 
+  mutate(HUC_8 = substr(HUC_12,1,8)) %>% 
+  group_by(HUC_8) %>% 
+  summarize(kWhkm2day = sum(kWhkm2day))
 
 
 #Join to HUC_8 features
-
-
-
+huc8_sf_wind <- huc8_sf %>% 
+  left_join(wind_energy_huc8, by = c('HUC_8'))
 
 #View the outputs
-
+mapview(huc8_sf_wind, zcol = 'kWhkm2day')
 
 
 ```
@@ -260,17 +268,19 @@ mapview(state_sf)
 
 ```{r Aggregate the HUC data on an attribute, saving as huc2_sf}
 #List the unique values in the DWQ_Basin field
-
-
+unique(huc8_sf$DWQ_Basin)
 
 
 #Summarize on DWQ Basin value
-
-
-
-
+huc2_sf <- huc8_sf %>% 
+  group_by(DWQ_Basin) %>% 
+  summarize(
+    ACRES = sum(ACRES),
+    SQ_MILE = sum(SQ_MILES)
+  )
   
 #Map the data
+mapview(huc2_sf,zcol='ACRES')
 
 ```
 
@@ -323,10 +333,10 @@ myMap = mapview(neuse_sf,
 #Show the map
 myMap
 
-#Select intersecting counties using matrix subsetting
+#Select intersecting counties using matrix subsetting (1st way to do this)
 neuse_intersect_1 <- counties_sf_utm[neuse_sf,]
 
-#Select intersecting counties using the `filter()` command
+#Select intersecting counties using the `filter()` command (2nd way to do this)
 neuse_intersect_2 <- counties_sf_utm %>% 
   filter(st_intersects(x = ., y = neuse_sf, sparse = FALSE))
 
@@ -349,17 +359,22 @@ mapview(neuse_counties_sf, zcol='Area_m2')
 *Now you try*: Select the counties in the "Triangle" (Chatham, Durham, Orange, and Wake). Then select the HUC_8s that touch these counties. And finally, select the portions of the HUC_8s that occur within these counties.
 
 ```{r EXERCISE: Clipping}
-#Select the Triangle County from the 
-
-
-
+#Select the Triangle County from the sf_counties dataframe
+the_triangle <- counties_sf_utm %>% 
+  filter(NAME %in% c("Chatham", "Durham", "Orange", "Wake"))
   
-#Grab the intersecting HUC_8s
 
+#Grab the intersecting HUC_8s
+the_hucs <- huc8_sf_utm[the_triangle,]
+ 
+mapview(the_hucs) + mapview(the_triangle, alpha.regions = 0, color = 'red')
 
 
 #Intersect the HUC_8s
+the_huc_clip <- huc2_utm %>% 
+  st_intersection(the_triangle)
 
+mapview(the_huc_clip) + mapview(the_triangle, alpha.regions = 0, color = 'red')
 
 
 
@@ -447,8 +462,15 @@ mapView(counties_sf[resultMask,])
 
 ```{r Select counties within a 30 km area from the site}
 
+site_30km <- st_buffer(theSite_sfc_transformed, 30000)
+mapview(site_30km)
 
+resultMask_30km <- st_intersects(counties_sf_utm,
+                                 site_30km,
+                                 sparse = FALSE)
 
+selCounties_30km <- counties_sf_utm[resultMask_30km,]
+mapview(selCounties_30km)
                             
 ```
 
@@ -483,6 +505,7 @@ Leaflet is the most powerful of the three. However it requires getting all our d
 ### 4.2.1 Multiple layers in Leaflet
 
 ```{r transform.data.back.to.WSG84}
+# Leaflet likes to deal with datasets that are in WGS 84 because that is what its base layers are in
 # Convert all to WGS84 (crs=4326)
 EPAair_wgs84 <- st_transform(epa_pm25_sites_sf, c=4326)
 counties_WGS84 <- st_transform(counties_sf_utm, c=4326)
@@ -501,6 +524,8 @@ leaflet() %>% addTiles() %>%
 Tip: See <http://leaflet-extras.github.io/leaflet-providers/> for other basemaps
 
 ```{r Visualizing multiple datasets with leaflet}
+# can add multiple items and change basemap using website above
+
 leaflet() %>% 
   addProviderTiles(providers$Esri.DeLorme) %>%  
   addPolygons(data = counties_WGS84, 
